@@ -2,3 +2,15 @@ langchain-google-genai
 google-genai
 langchain
 langgraph
+
+arize-phoenix
+arize-phoenix-otel
+openinference-instrumentation-langchain
+
+python-dotenv
+
+# Data
+pydantic
+
+fastapi
+uvicorn

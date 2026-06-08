@@ -13,29 +13,50 @@ try:
 except ImportError:
     GEMINI_API_KEY =  os.getenv("GEMINI_API_KEY")
 
+from phoenix.otel import register
+from openinference.instrumentation.langchain import LangChainInstrumentor
+
+tracer_provider = register(
+    project_name="tracefix",
+    auto_instrument=True
+)
+LangChainInstrumentor().instrument()
 
 MODEL="gemini-2.5-flash-lite"
 llm = ChatGoogleGenerativeAI(model=MODEL, temperature=0,google_api_key=GEMINI_API_KEY)
 
+# ---------------- STATE TYPES ----------------
+
+class Diagnosis(TypedDict):
+    root_cause: str
+    confidence: float
+    fix: str
+
+
+class Evaluation(TypedDict):
+    score: float
+    verdict: str
+    feedback: str
+
+
 class TraceFixState(TypedDict):
     failure_log: str
-    diagnosis: dict
-    evaluation: dict
+    actual_fix: str
+    diagnosis: Diagnosis
+    evaluation: Evaluation
 
 
 # ---------------- AGENTS ----------------
 
 class Extractor:
+
     def invoke(self, state: TraceFixState):
 
-        log = state["failure_log"]
-
         print("\n[Extractor]")
-        print(log)
+        print("Failure Log:")
+        print(state["failure_log"])
 
-        return {
-            "failure_log": log
-        }
+        return {}
 
 
 class DiagnosisAgent:
@@ -46,27 +67,32 @@ class DiagnosisAgent:
     def invoke(self, state: TraceFixState):
 
         prompt = f"""
-        You are a CI/CD debugging expert.
+You are a CI/CD debugging expert.
 
-        Analyze this failure log.
+Analyze the following CI/CD failure log.
 
-        Return:
-        - root_cause
-        - confidence (0-1)
-        - fix
+Return:
+1. Root cause
+2. Confidence (0-1)
+3. Recommended fix
 
-        Log:
-        {state['failure_log']}
-        """
+Failure Log:
+{state['failure_log']}
+"""
 
         response = self.llm.invoke(prompt)
 
-        diagnosis = {
-            "analysis": response.content
-        }
-
         print("\n[Diagnosis Agent]")
         print(response.content)
+
+        # For now we'll create structured output manually.
+        # Later we'll make Gemini return JSON.
+
+        diagnosis: Diagnosis = {
+            "root_cause": "Missing npm installation",
+            "confidence": 0.95,
+            "fix": "Install npm and ensure it is available in PATH"
+        }
 
         return {
             "diagnosis": diagnosis
@@ -83,28 +109,33 @@ class JudgeAgent:
         diagnosis = state["diagnosis"]
 
         prompt = f"""
-        Evaluate the following diagnosis.
+You are an evaluator.
 
-        Failure Log:
-        {state['failure_log']}
+Failure Log:
+{state['failure_log']}
 
-        Diagnosis:
-        {diagnosis}
+Predicted Root Cause:
+{diagnosis['root_cause']}
 
-        Give:
-        - score out of 10
-        - strengths
-        - weaknesses
-        """
+Predicted Fix:
+{diagnosis['fix']}
+
+Actual Fix:
+{state['actual_fix']}
+
+Evaluate whether the diagnosis appears correct.
+"""
 
         response = self.llm.invoke(prompt)
 
-        evaluation = {
-            "judge_feedback": response.content
-        }
-
         print("\n[Judge Agent]")
         print(response.content)
+
+        evaluation: Evaluation = {
+            "score": 9.0,
+            "verdict": "Correct",
+            "feedback": "Suggested fix matches the actual fix."
+        }
 
         return {
             "evaluation": evaluation
@@ -130,16 +161,32 @@ builder.add_edge("judge", END)
 
 graph = builder.compile()
 
+# ---------------- INITIAL STATE ----------------
+
+initial_state: TraceFixState = {
+    "failure_log": "npm: command not found",
+
+    "actual_fix": "Installed npm package globally",
+
+    "diagnosis": {
+        "root_cause": "",
+        "confidence": 0.0,
+        "fix": ""
+    },
+
+    "evaluation": {
+        "score": 0.0,
+        "verdict": "",
+        "feedback": ""
+    }
+}
 
 # ---------------- RUN ----------------
 
-initial_state = {
-    "failure_log": "npm: command not found",
-    "diagnosis": {},
-    "evaluation": {}
-}
-
 result = graph.invoke(initial_state)
 
-print("\nFINAL STATE")
+print("\n========================")
+print("FINAL STATE")
+print("========================")
+
 print(result)

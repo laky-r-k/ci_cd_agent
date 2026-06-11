@@ -51,7 +51,7 @@ router = EventRouter(
 async def github_webhook(request: Request):
 
     payload = await request.json()
-    print("working")
+    print(payload)
 
 
     event = {

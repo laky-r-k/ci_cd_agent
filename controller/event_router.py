@@ -9,6 +9,7 @@ class IncidentStore:
         commit,
         error
     ):
+
         self.incidents[commit] = {
             "commit": commit,
             "error": error,
@@ -19,8 +20,9 @@ class IncidentStore:
     def get_open_incidents(self):
 
         return [
-            x for x in self.incidents.values()
-            if x["status"] == "OPEN"
+            incident
+            for incident in self.incidents.values()
+            if incident["status"] == "OPEN"
         ]
 
 
@@ -28,10 +30,14 @@ class IncidentStore:
         self,
         commit
     ):
-        self.incidents[commit]["status"]="CLOSED"
+
+        if commit in self.incidents:
+            self.incidents[commit]["status"] = "CLOSED"
+
 
 
 class EventRouter:
+
 
     def __init__(
         self,
@@ -48,106 +54,174 @@ class EventRouter:
 
 
 
-    def handle_event(self,payload):
+    def handle_event(
+        self,
+        payload
+    ):
 
-        commit = payload["commits"][0]
+        print("\nEVENT ROUTER")
+        print(payload)
 
-        sha = commit["id"]
+
+        # from server.py
+        sha = payload["commit"]
+
+        repo = payload["repo"]
 
 
         status = self.github_service.get_ci_status(
+            repo,
             sha
+        )
+
+
+        print(
+            "CI STATUS:",
+            status
         )
 
 
         if status == "failure":
 
             self.handle_failure(
-                sha
+                sha,
+                repo
             )
 
 
         elif status == "success":
 
             self.handle_success(
-                sha
+                sha,
+                repo
             )
-    def handle_failure(self,sha):
+
+
+        else:
+
+            print(
+                "CI still running"
+            )
+
+
+
+    def handle_failure(
+        self,
+        sha,
+        repo
+    ):
 
 
         open_incidents = (
-        self.incident_store
-        .get_open_incidents()
-    )
+            self.incident_store
+            .get_open_incidents()
+        )
 
 
-    # already tracking this failure
+        # check duplicate failure
         for incident in open_incidents:
 
+
             if incident["commit"] == sha:
+
                 print(
-              "Old failure. Ignore"
-            )
+                    "Old failure. Ignoring"
+                )
+
                 return
 
 
 
-    # NEW FAILURE
-
         print(
-      "New failure detected"
-    )
+            "New failure detected"
+        )
 
 
         self.incident_store.create_incident(
-        sha,
-        "ci failure"
-    )
+            sha,
+            "CI pipeline failed"
+        )
 
+
+
+        # run diagnosis
 
         self.diagnosis_graph.invoke(
-        {
-          "commit":sha
-        }
-    )
-        
+            {
 
-    def handle_success(self,sha):
+                "failure_log":
+                    self.github_service.get_failure_logs(
+                        repo,
+                        sha
+                    ),
+
+                "actual_fix": "",
+
+                "diagnosis": {},
+
+                "evaluation": {}
+            }
+        )
+
+
+
+    def handle_success(
+        self,
+        sha,
+        repo
+    ):
+
 
         incidents = (
             self.incident_store
-        .get_open_incidents()
-    )
+            .get_open_incidents()
+        )
 
 
         if not incidents:
+
             print(
-          "Nothing to evaluate"
-        )
+                "No previous failures"
+            )
+
             return
+
 
 
         for incident in incidents:
 
+
             print(
-          "Possible fix found"
-        )
+                "Possible fix detected"
+            )
 
 
             self.judge_graph.invoke(
-          {
-            "failure_commit":
-                 incident["commit"],
+                {
 
-            "fix_commit":
-                 sha
-          }
-        )
+                "failure_log":
+                    incident["error"],
+
+
+                "actual_fix":
+                    f"Commit {sha} fixed issue",
+
+
+                "diagnosis": {},
+
+
+                "evaluation": {}
+
+                }
+            )
 
 
             self.incident_store.close_incident(
-             incident["commit"]
-        )
-    
+                incident["commit"]
+            )
 
-    
+
+            print(
+                "Incident closed:",
+                incident["commit"]
+            )

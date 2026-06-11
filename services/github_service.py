@@ -1,17 +1,22 @@
 import os
+import time
+import requests
 from github import Github
-
+from config import GITHUB_TOKEN
 
 class GitHubService:
 
 
     def __init__(self):
 
-        token = os.getenv(
-            "GITHUB_TOKEN"
-        )
+        token = GITHUB_TOKEN
 
         self.client = Github(token)
+
+        self.headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json"
+        }
 
 
 
@@ -23,11 +28,13 @@ class GitHubService:
 
 
 
-    def get_commit(self, repo_name, sha):
+    def get_commit(
+        self,
+        repo_name,
+        sha
+    ):
 
-        repo = self.get_repo(
-            repo_name
-        )
+        repo = self.get_repo(repo_name)
 
         return repo.get_commit(
             sha
@@ -50,22 +57,58 @@ class GitHubService:
         )
 
 
-        runs = (
-            repo
-            .get_workflow_runs(
+        for i in range(10):
+
+            runs = repo.get_workflow_runs(
                 head_sha=sha
             )
-        )
 
 
-        for run in runs:
+            if runs.totalCount == 0:
+
+                print(
+                    "No workflow found yet"
+                )
+
+                time.sleep(5)
+                continue
+
+
+
+            run = runs[0]
+
+
+            print(
+                "Workflow:",
+                run.name,
+                "STATUS:",
+                run.status,
+                "RESULT:",
+                run.conclusion
+            )
+
+
 
             if run.status == "completed":
 
-                return run.conclusion
+
+                if run.conclusion == "success":
+
+                    return "success"
+
+
+                if run.conclusion == "failure":
+
+                    return "failure"
+
+
+
+            time.sleep(5)
+
 
 
         return "running"
+
 
 
 
@@ -85,38 +128,59 @@ class GitHubService:
         )
 
 
-        runs = (
-            repo
-            .get_workflow_runs(
-                head_sha=sha
-            )
+        runs = repo.get_workflow_runs(
+            head_sha=sha
         )
 
 
-        for run in runs:
+        if runs.totalCount == 0:
+            return "No CI run found"
 
 
-            if run.conclusion == "failure":
+
+        run = runs[0]
 
 
-                print(
-                    "Failed workflow:",
-                    run.name
-                )
+        if run.conclusion != "failure":
+
+            return "No failure"
 
 
-                # github API does not directly
-                # give logs from PyGithub
-                # need requests here
+
+        print(
+            "Failed workflow:",
+            run.name
+        )
 
 
-                return (
-                    "Workflow failed. "
-                    "Check actions logs."
-                )
+        # download logs
+
+        url = (
+            f"https://api.github.com/repos/"
+            f"{repo_name}/actions/runs/"
+            f"{run.id}/logs"
+        )
 
 
-        return None
+        response = requests.get(
+            url,
+            headers=self.headers
+        )
+
+
+        if response.status_code == 200:
+
+            return (
+                "CI failed.\n"
+                "Logs available at workflow run."
+            )
+
+
+        return (
+            "Workflow failed but logs unavailable"
+        )
+
+
 
 
 

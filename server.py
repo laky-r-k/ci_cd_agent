@@ -1,34 +1,26 @@
 from fastapi import FastAPI, Request
 import uvicorn
-
+from controller.event_router import EventRouter
 app = FastAPI()
-
+router = EventRouter()
 
 @app.post("/github-webhook")
 async def github_webhook(request: Request):
 
     payload = await request.json()
 
-    event = payload.get("action")
 
-    print("GitHub Event Received")
-
-    # get commit information
-    commits = payload.get("commits", [])
-
-    for commit in commits:
-        print(
-            "Commit:",
-            commit["id"]
-        )
-
-    # later:
-    # call diagnosis graph
-    # or judge graph
-
-    return {
-        "status": "received"
+    event = {
+        "repo": payload["repository"]["full_name"],
+        "commit": payload["after"],
+        "previous": payload["before"],
     }
+
+
+    router.handle_event(event)
+
+
+    return {"status":"ok"}
 
 
 if __name__ == "__main__":

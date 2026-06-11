@@ -1,5 +1,5 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from state import Diagnosis, TraceFixState
+from agents.state import Diagnosis, TraceFixState
 
 
 class DiagnosisAgent:

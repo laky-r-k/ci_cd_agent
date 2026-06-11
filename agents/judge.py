@@ -1,4 +1,4 @@
-from state import TraceFixState, Evaluation
+from agents.state import TraceFixState, Evaluation
 
 
 class JudgeAgent:

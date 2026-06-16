@@ -10,13 +10,20 @@ class git_log_fetcher:
         auth = Auth.Token(self.git_token)
         self.g = Github(auth=auth)
         self.repo = self.g.get_repo(self.repo_name)
+        
+    def fetch_workflow_runs(self,branch=None):
+        if branch:
+            return self.repo.get_workflow_runs(branch=branch)
+        else:
+            return self.repo.get_workflow_runs()
+        
 
-    def fetch_latest_workflow_logs(self):
+    def fetch_latest_workflow_logs(self,run_indx=0):
         runs = self.repo.get_workflow_runs()
         if runs.totalCount == 0:
             return "No workflow runs found."
 
-        latest_run = runs[0]
+        latest_run = runs[run_indx]
         print(f"Fetching logs for Workflow Run: {latest_run.name} (ID: {latest_run.id})")
 
         jobs = latest_run.jobs()
@@ -42,6 +49,7 @@ if __name__ == "__main__":
     REPO_NAME = "laky-r-k/cd_test_repo"
     log_fetcher = git_log_fetcher(REPO_NAME, TOKEN)
     logs = log_fetcher.fetch_latest_workflow_logs()
+    
     
     for job_name, log_content in logs.items():
         print(f"Logs for Job: {job_name}\n{log_content}\n{'-'*80}\n")   

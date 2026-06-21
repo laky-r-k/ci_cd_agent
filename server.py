@@ -13,6 +13,8 @@ from services.github_service import GitHubService
 from langchain_google_genai import ChatGoogleGenerativeAI
 from config import GEMINI_API_KEY
 
+from controller.pworkflow import is_new_error
+
 setup_phoenix()
 
 
@@ -71,7 +73,7 @@ async def github_webhook(request: Request):
 
 
 
-    router.handle_event(event)
+    print(is_new_error())
 
 
     return {

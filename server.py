@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 import uvicorn
 import os
 
-from controller.event_router import EventRouter, IncidentStore
+from controller.event_router import EventRouter, IncidentStore ,Eventhandler
 from core.phoenix_setup import setup_phoenix
 
 from graphs.diagnosis_graph import create_diagnosis_graph
@@ -40,13 +40,10 @@ github_service = GitHubService()
 incident_store = IncidentStore()
 
 
-router = EventRouter(
+router = Eventhandler(
     DIAGNOSIS_GRAPH,
-    JUDGE_GRAPH,
-    github_service,
-    incident_store
+    JUDGE_GRAPH
 )
-
 
 
 @app.post("/github-webhook")
@@ -73,7 +70,7 @@ async def github_webhook(request: Request):
 
 
 
-    print(is_new_error())
+    router.handle()
 
 
     return {

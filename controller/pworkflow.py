@@ -1,6 +1,5 @@
 #checks previous workflow run ...if the error previously occured its not new error 
 
-
 from services.logs import git_log_fetcher
 from config import GITHUB_TOKEN
 
@@ -14,6 +13,8 @@ def get_failed_step(run):
                 if step.conclusion == "failure":
                     return f"{job.name} -> {step.name}"
     return "unknown"
+
+
 
 def is_new_error(branch_name="main"):
     log_fetcher = git_log_fetcher(
@@ -56,11 +57,29 @@ def is_new_error(branch_name="main"):
         print(f"Mismatch: Old failed at {previous_error}, New failed at {latest_error}")
         return "new"  # Failed for a completely different reason.
     
-
-
+from services.github_data_extractor import commit_data_extractor
+from services.logs import git_log_fetcher
 class eventhandler:
-    def __init__(self):
-        pass
+    def __init__(self,diagnosis_graph,judge_graph,):
+        self.diagnosis_agent = diagnosis_graph
+        self.judge_agent = judge_graph
+        self.git_log_fetcher = git_log_fetcher(
+            repo_name="laky-r-k/cd_test_repo",
+            git_token=GITHUB_TOKEN
+        )
+
+    def handle(self):
+        log = self.git_log_fetcher.fetch_latest_workflow_logs(branch="main")
+        type_of_error = is_new_error(log)
+        if type_of_error=="new":
+            self.diagnosis_agent.invoke()
+        elif type_of_error == "solved":
+            pass
+        elif type_of_error == "old":
+            pass
+        else:
+            pass
 
 if __name__ == "__main__":
-    print(is_new_error())
+    result = is_new_error()
+    print(f"Error classification result: {result}")

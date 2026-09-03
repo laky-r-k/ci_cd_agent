@@ -18,8 +18,8 @@ class git_log_fetcher:
             return self.repo.get_workflow_runs()
         
 
-    def fetch_latest_workflow_logs(self,run_indx=0):
-        runs = self.repo.get_workflow_runs()
+    def fetch_latest_workflow_logs(self,run_indx=0,branch=None):
+        runs = self.fetch_workflow_runs(branch=branch)
         if runs.totalCount == 0:
             return "No workflow runs found."
 

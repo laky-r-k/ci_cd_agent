@@ -1,4 +1,4 @@
-class IncidentStore:
+class IncidentStore:  #old code
 
     def __init__(self):
         self.incidents = {}
@@ -225,7 +225,6 @@ class EventRouter:
                 "Incident closed:",
                 incident["commit"]
             )
-
 
 
 

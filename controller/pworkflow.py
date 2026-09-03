@@ -2,6 +2,7 @@
 
 from services.logs import git_log_fetcher
 from config import GITHUB_TOKEN
+from agents.state import TraceFixState
 
 def get_failed_step(run):
     """Helper: Finds exactly which step crashed in a workflow run."""
@@ -16,14 +17,11 @@ def get_failed_step(run):
 
 
 
-def is_new_error(branch_name="main"):
-    log_fetcher = git_log_fetcher(
-        repo_name="laky-r-k/cd_test_repo",
-        git_token=GITHUB_TOKEN
-    )
+def is_new_error(log_fetcher : git_log_fetcher ,branch_name="main" ):
+    
     
     # 1. Strictly filter by branch to prevent cross-contamination
-    runs = log_fetcher.repo.get_workflow_runs(branch=branch_name)
+    runs = log_fetcher.fetch_workflow_runs(branch=branch_name)
     
     if runs.totalCount == 0:
         return "pass"
@@ -59,7 +57,7 @@ def is_new_error(branch_name="main"):
     
 from services.github_data_extractor import commit_data_extractor
 from services.logs import git_log_fetcher
-class eventhandler:
+class Eventhandler:
     def __init__(self,diagnosis_graph,judge_graph,):
         self.diagnosis_agent = diagnosis_graph
         self.judge_agent = judge_graph
@@ -68,11 +66,12 @@ class eventhandler:
             git_token=GITHUB_TOKEN
         )
 
-    def handle(self):
+    def handle(self, initial_state : TraceFixState):
         log = self.git_log_fetcher.fetch_latest_workflow_logs(branch="main")
-        type_of_error = is_new_error(log)
+        type_of_error = is_new_error(log_fetcher=self.git_log_fetcher, branch_name="main")
+        initial_state["failure_log"] = log
         if type_of_error=="new":
-            self.diagnosis_agent.invoke()
+            self.diagnosis_agent.invoke(initial_state)
         elif type_of_error == "solved":
             pass
         elif type_of_error == "old":

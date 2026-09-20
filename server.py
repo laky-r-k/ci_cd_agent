@@ -16,7 +16,6 @@ from config import GEMINI_API_KEY
 
 from controller.pworkflow import is_new_error
 
-
 setup_phoenix()
 
 app = FastAPI()
@@ -67,7 +66,11 @@ async def github_webhook(request: Request):
 
     time.sleep(30)
 
+
     router.handle(initial_state)
+
+  
+
 
     return {
         "status": initial_state

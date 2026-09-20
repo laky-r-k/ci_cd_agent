@@ -15,6 +15,17 @@ def get_failed_step(run):
                     return f"{job.name} -> {step.name}"
     return "unknown"
 
+def get_failed_step(run):
+    """Helper: Finds exactly which step crashed in a workflow run."""
+    if run.conclusion != "failure":
+        return None
+    for job in run.jobs():
+        if job.conclusion == "failure":
+            for step in job.steps:
+                if step.conclusion == "failure":
+                    return f"{job.name} -> {step.name}"
+    return "unknown"
+
 
 
 def is_new_error(log_fetcher : git_log_fetcher ,branch_name="main" ):
@@ -55,6 +66,7 @@ def is_new_error(log_fetcher : git_log_fetcher ,branch_name="main" ):
         print(f"Mismatch: Old failed at {previous_error}, New failed at {latest_error}")
         return "new"  # Failed for a completely different reason.
     
+
 from services.github_data_extractor import commit_data_extractor
 from services.logs import git_log_fetcher
 class Eventhandler:
@@ -82,3 +94,4 @@ class Eventhandler:
 if __name__ == "__main__":
     result = is_new_error()
     print(f"Error classification result: {result}")
+
